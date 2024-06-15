@@ -4,6 +4,42 @@ import random
 dias = list(range(5))
 horarios_por_dia = list(range(15))
 
+def gera_candidatos(disciplina, alpha, tabela_horario):
+    candidatos = []
+    # Lista os horários válidos a depender da carga horária da disciplina (dois créditos ou três créditos)
+    horarios_validos_ch2 = [0, 1, 3, 5, 7, 8]
+    horarios_validos_ch3 = [0, 2, 5, 7]
+
+    for dia in dias:
+        for horario in horarios_por_dia:
+            if disciplina.ch == 3 and horario not in horarios_validos_ch3:
+                continue
+            if (disciplina.ch == 2 or disciplina.ch == 4) and horario not in horarios_validos_ch2:
+                continue
+            if ((disciplina.curso == 'CCO' and 0 <= horario < 10) or
+                    (disciplina.curso == 'SIN' and 10 <= horario < 15) or
+                    (disciplina.periodo == '11' or disciplina.periodo == '12')):
+                custo = calcular_custo(tabela_horario, disciplina, dia, horario)
+                if custo >= 5000:
+                    continue
+                candidatos.append(((horario, dia), custo))
+
+    candidatos.sort(key=lambda x: x[1])
+
+    if not candidatos:
+        print(f'Não foi possível alocar a disciplina {disciplina.sigla}')
+        return []
+
+    c_min = candidatos[0][1]
+    c_max = candidatos[-1][1]
+    limite = c_min + alpha * (c_max - c_min)
+
+    # Define a lista de candidatos restritos
+    lcr = [[c, custo] for c, custo in candidatos if custo <= limite]
+
+    escolha = random.choice(lcr)
+
+    return escolha
 
 def construir_solucao_inicial(disciplinas, alpha):
     """Constrói uma solução inicial de maneira gulosa, mas introduzindo um elemento de aleatoriedade para evitar ficar
@@ -16,41 +52,39 @@ def construir_solucao_inicial(disciplinas, alpha):
 
     # Criação da variável que armazena o custo da solução (função objetivo)
     f_objetivo = 0
+    
     while discip_ordenadas:
         disciplina = discip_ordenadas.pop(0)
-        horarios_alocados = 0
-        while horarios_alocados < disciplina.ch:
-            candidatos = []
-            for dia in dias:
-                for horario in horarios_por_dia:
-                    if ((disciplina.curso == 'CCO' and 0 <= horario < 10) or
-                            (disciplina.curso == 'SIN' and 10 <= horario < 15) or
-                            (disciplina.periodo == '11' or disciplina.periodo == '12')):
-                        custo = calcular_custo(tabela_horario, disciplina, dia, horario)
-                        candidatos.append(((horario, dia), custo))
+        
+        escolha1 = gera_candidatos(disciplina, alpha, tabela_horario)
 
-            candidatos.sort(key=lambda x: x[1])
+        if not escolha1:
+            continue
 
-            if not candidatos:
-                print(f'Não foi possível alocar a disciplina {disciplina.sigla}')
-                continue
+        horario, dia = escolha1[0]
 
-            c_min = candidatos[0][1]
-            c_max = candidatos[-1][1]
-            limite = c_min + alpha * (c_max - c_min)
+        # Aloca a disciplina na posição escolhida da tabela-horário
+        tabela_horario[horario][dia].append(disciplina)
+        tabela_horario[horario + 1][dia].append(disciplina)
 
-            # Define a lista de candidatos restritos
-            lcr = [[c, custo] for c, custo in candidatos if custo <= limite]
+        if(disciplina.ch == 3):
+            tabela_horario[horario + 2][dia].append(disciplina)
 
-            escolha = random.choice(lcr)
-            horario, dia = escolha[0]
+        if(disciplina.ch == 4):
+            escolha2 = gera_candidatos(disciplina, alpha, tabela_horario)
 
-            # Incrementar o valor da função objetivo da solução
-            f_objetivo += escolha[1]
+            if not escolha2:
+                tabela_horario[horario][dia].remove(disciplina)
+                tabela_horario[horario + 1][dia].remove(disciplina)
+                continue    
 
-            # Aloca a disciplina na posição escolhida da tabela-horário
-            tabela_horario[horario][dia].append(disciplina)
-            horarios_alocados += 1
+            horario2, dia2 = escolha2[0]
+            tabela_horario[horario2][dia2].append(disciplina)
+            tabela_horario[horario2 + 1][dia2].append(disciplina)
+            f_objetivo += escolha2[1]
+
+        # Incrementar o valor da função objetivo da solução
+        f_objetivo += escolha1[1]
 
     return tabela_horario, f_objetivo
 
@@ -66,14 +100,8 @@ def calcular_custo(tabela_horario, disciplina, dia, horario):
                     if dia == d and horario == h:
                         custo += 5000
 
-    # # RFT03: Aulas da mesma disciplina devem estar em horários adjacentes
-    adj = False
-    if horario > 0 and disciplina in tabela_horario[horario - 1][dia]:
-        adj = True
-    if horario < horarios_por_dia[-1] and disciplina in tabela_horario[horario + 1][dia]:
-        adj = True
-    if not adj:
-        custo += 5000
+    # RFT03: Aulas da mesma disciplina devem estar em horários adjacentes
+    # Resolvido no código
 
     # RFT04: No máximo duas aulas da mesma disciplina por dia
     aulas_no_dia = 0
@@ -93,18 +121,18 @@ def calcular_custo(tabela_horario, disciplina, dia, horario):
     if aulas_prof_dia > 6:
         custo += 5000
 
-    # RFC01: O horário 1 deve ser evitado. Cada aula alocada neste horário é contada como uma violação.
-    if horario == 1:
+    # RFC01: O horário 0 (7:00) deve ser evitado. Cada aula alocada neste horário é contada como uma violação.
+    if horario == 0:
         custo += 10
 
     # RFC02: deve-se evitar que aulas da mesma disciplina sejam alocadas em dias consecutivos.
-    if dia > 0:
-        if disciplina.sigla in tabela_horario[horario][dia - 1]:
-            custo += 10
+    # if dia > 0:
+    #     if disciplina.sigla in tabela_horario[horario][dia - 1]:
+    #         custo += 10
 
-    if dia < len(tabela_horario[0]) - 1:
-        if disciplina.sigla in tabela_horario[horario][dia + 1]:
-            custo += 10
+    # if dia < len(tabela_horario[0]) - 1:
+    #     if disciplina.sigla in tabela_horario[horario][dia + 1]:
+    #         custo += 10
 
     # RFC03: Deve-se evitar que duas aulas da mesma disciplina sejam alocadas nos horários 5 e 6 (separadas pelo almoço)
     if horario == 5 or horario == 6:
