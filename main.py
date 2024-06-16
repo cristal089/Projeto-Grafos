@@ -13,20 +13,24 @@ def main():
     # mod.plotar_grafo(grafo)                                 # Plotagem do grafo
     dados = pd.read_csv('dados.csv')
 
-    solucao, f_obj = grasp.construir_solucao_inicial(disciplinas, 0.2)
+    qtd_alocada = 0
+    while qtd_alocada != 304:
+        qtd_alocada = 0
+        solucao, f_obj = grasp.construir_solucao_inicial(disciplinas, 0.2)
+        for dia in range(5):
+            for hora in range(14):
+                qtd_alocada += len(solucao[hora][dia])
 
-    qtd = 0
     for dia in range(5):
         print(f'\n\n\tDIA {dia+1}')
-        for hora in range(15):
+        for hora in range(14):
             print(f'\n\tHorário {hora + 1}: ')
             for disciplina in solucao[hora][dia]:
-                qtd += 1
                 # if disciplina.periodo == '1' and disciplina.curso == 'CCO':
                 print(f'{disciplina.sigla}')
 
     print(f'\nCUSTO DA SOLUÇÃO: {f_obj}')
-    print(f'\nAulas alocadas: {qtd}/321')
+    print(f'\nAulas alocadas: {qtd_alocada}/304')
 
     le.escrever_solucao('resultado.csv', solucao)
 

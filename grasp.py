@@ -2,23 +2,48 @@ import random
 
 # Parâmetros da tabela-horário
 dias = list(range(5))
+# São considerados 14 horários, excluindo o horário das 22h40 às 23h30
 horarios_por_dia = list(range(15))
 
 def gera_candidatos(disciplina, alpha, tabela_horario):
     candidatos = []
     # Lista os horários válidos a depender da carga horária da disciplina (dois créditos ou três créditos)
-    horarios_validos_ch2 = [0, 1, 3, 5, 7, 8]
-    horarios_validos_ch3 = [0, 2, 5, 7]
+    hvalidos_cco_ch2 = [0, 1, 3, 5, 7]
+    hvalidos_cco_ch3 = [0, 2, 5, 7]
+
+    hvalidos_sin_ch2 = [10, 12]
+    hvalidos_sin_ch3 = [10]
+
+    hvalidos_opt_ch2 = hvalidos_cco_ch2 + hvalidos_sin_ch2
+    hvalidos_opt_ch3 = hvalidos_cco_ch3 + hvalidos_sin_ch3
 
     for dia in dias:
         for horario in horarios_por_dia:
-            if disciplina.ch == 3 and horario not in horarios_validos_ch3:
-                continue
-            if (disciplina.ch == 2 or disciplina.ch == 4) and horario not in horarios_validos_ch2:
-                continue
-            if ((disciplina.curso == 'CCO' and 0 <= horario < 10) or
-                    (disciplina.curso == 'SIN' and 10 <= horario < 15) or
-                    (disciplina.periodo == '11' or disciplina.periodo == '12')):
+            if disciplina.curso == 'CCO':
+                if disciplina.ch == 3 and horario not in hvalidos_cco_ch3:
+                    continue
+                if (disciplina.ch == 2 or disciplina.ch == 4) and horario not in hvalidos_cco_ch2:
+                    continue                
+                custo = calcular_custo(tabela_horario, disciplina, dia, horario)
+                if custo >= 5000:
+                    continue
+                candidatos.append(((horario, dia), custo))
+            
+            if disciplina.curso == 'SIN':
+                if disciplina.ch == 3 and horario not in hvalidos_sin_ch3:
+                    continue
+                if (disciplina.ch == 2 or disciplina.ch == 4) and horario not in hvalidos_sin_ch2:
+                    continue                
+                custo = calcular_custo(tabela_horario, disciplina, dia, horario)
+                if custo >= 5000:
+                    continue
+                candidatos.append(((horario, dia), custo))
+
+            if (disciplina.periodo == '11' or disciplina.periodo == '12'):
+                if disciplina.ch == 3 and horario not in hvalidos_opt_ch3:
+                    continue
+                if (disciplina.ch == 2 or disciplina.ch == 4) and horario not in hvalidos_opt_ch2:
+                    continue
                 custo = calcular_custo(tabela_horario, disciplina, dia, horario)
                 if custo >= 5000:
                     continue
@@ -77,7 +102,7 @@ def construir_solucao_inicial(disciplinas, alpha):
                 tabela_horario[horario][dia].remove(disciplina)
                 tabela_horario[horario + 1][dia].remove(disciplina)
                 continue    
-
+            
             horario2, dia2 = escolha2[0]
             tabela_horario[horario2][dia2].append(disciplina)
             tabela_horario[horario2 + 1][dia2].append(disciplina)
@@ -93,23 +118,28 @@ def calcular_custo(tabela_horario, disciplina, dia, horario):
     """Com base nas restrições, calcula o custo de alocação da disciplina em determinado horário"""
     custo = 0
     # RFT02: Diferentes períodos e professores em horários diferentes
-    for d in dias:
-        for h in horarios_por_dia:
-            for discip in tabela_horario[h][d]:
-                if discip.periodo == disciplina.periodo or discip.prof == disciplina.prof:
-                    if dia == d and horario == h:
-                        custo += 5000
+    if disciplina.ch == 3:
+        for i in range(3):
+            for discip_concorrente in tabela_horario[horario + i][dia]:
+                if discip_concorrente.prof == disciplina.prof or discip_concorrente.periodo == disciplina.periodo:
+                    custo += 5000
+
+    if disciplina.ch == 2 or disciplina.ch == 4:
+        for i in range(2):
+            for discip_concorrente in tabela_horario[horario + i][dia]:
+                if discip_concorrente.prof == disciplina.prof or discip_concorrente.periodo == disciplina.periodo:
+                    custo += 5000
 
     # RFT03: Aulas da mesma disciplina devem estar em horários adjacentes
     # Resolvido no código
 
     # RFT04: No máximo duas aulas da mesma disciplina por dia
-    aulas_no_dia = 0
+    aulas_no_dia = 0    
     for h in horarios_por_dia:
         for discip in tabela_horario[h][dia]:
             if discip.sigla == disciplina.sigla:
                 aulas_no_dia += 1
-    if aulas_no_dia > 2:
+    if aulas_no_dia >= 2:
         custo += 5000
 
     # RFT05: Professor não pode lecionar mais de 6 aulas por dia
@@ -135,10 +165,7 @@ def calcular_custo(tabela_horario, disciplina, dia, horario):
     #         custo += 10
 
     # RFC03: Deve-se evitar que duas aulas da mesma disciplina sejam alocadas nos horários 5 e 6 (separadas pelo almoço)
-    if horario == 5 or horario == 6:
-        for d in range(len(tabela_horario[0])):
-            if disciplina.sigla in tabela_horario[5][d] and disciplina.sigla in tabela_horario[6][d]:
-                custo += 10
+    # Resolvido no código
 
     return custo
 
