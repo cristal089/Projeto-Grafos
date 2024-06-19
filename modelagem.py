@@ -45,19 +45,20 @@ def construir_grafo(disciplinas):
 def construir_matriz_adj(grafo):
     """Constrói a matriz de adjacências do grafo criado"""
     matriz_adj_esparsa = nx.adjacency_matrix(grafo)
-
     matriz_adj = matriz_adj_esparsa.toarray()
 
     return matriz_adj
 
 
 def colorir_grafo(grafo):
+    """Usa a função greedy_color da biblioteca networkx para atribuir uma cor a cada vértice do grafo"""
     cores = greedy_color(grafo, strategy='largest_first')
     for sigla, cor in cores.items():
         grafo.nodes[sigla]['obj'].cor = cor
 
 
 def plotar_grafo(grafo):
+    """Usa as bibliotecas networkx e matplotlib para plotar o grafo recebido como parâmetro"""
     pos = nx.spring_layout(grafo, k=0.25)  # Layout do grafo
     cores = [grafo.nodes[n]['obj'].cor for n in grafo.nodes]
     labels = {n: grafo.nodes[n]['obj'].sigla for n in grafo.nodes}
